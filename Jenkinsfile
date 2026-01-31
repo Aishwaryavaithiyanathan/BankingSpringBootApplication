@@ -27,14 +27,14 @@ pipeline {
 
         stage('Maven Build') {
             steps {
-                sh 'mvn clean package'
+                bat 'mvn clean package'
             }
         }
 
         stage('Docker Image Build') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh """
+                    bat """
                         docker build -t \$DOCKER_USER/\$CONTAINER_NAME:\$TAG --pull --no-cache .
                     """
                 }
@@ -45,7 +45,7 @@ pipeline {
         stage('Generate SBOM') {
             steps {
                 echo 'Generating SBOM using Trivy container'
-                sh """
+                bat """
                     docker run --rm \
                       -v /var/run/docker.sock:/var/run/docker.sock \
                       -v \$WORKSPACE:/work \
@@ -60,7 +60,7 @@ pipeline {
         stage('Scan SBOM (Security Gate)') {
             steps {
                 echo 'Scanning SBOM for HIGH and CRITICAL vulnerabilities'
-                sh """
+                bat """
                     docker run --rm \
                       -v \$WORKSPACE:/work \
                       aquasec/trivy:latest sbom \
@@ -81,7 +81,7 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh """
+                    bat """
                         docker login -u \$DOCKER_USER -p \$DOCKER_PASSWORD
                         docker push \$DOCKER_USER/\$CONTAINER_NAME:\$TAG
                     """
@@ -89,22 +89,6 @@ pipeline {
             }
         }
 
-        stage('Ansible Playbook Execution') {
-            steps {
-                withCredentials([string(credentialsId: 'ssh_password', variable: 'ANSIBLE_PASSWORD')]) {
-                    sh """
-                        export ANSIBLE_HOST_KEY_CHECKING=False
-                        ansible-playbook -i inventory.yaml containerDeploy.yaml \
-                          -e httpPort=\$HTTP_PORT \
-                          -e containerName=\$CONTAINER_NAME \
-                          -e dockerImageTag=\$DOCKER_USER/\$CONTAINER_NAME:\$TAG \
-                          -e ansible_password=\$ANSIBLE_PASSWORD \
-                          -e key_pair_path=/var/lib/jenkins/server.pem \
-                          --become
-                    """
-                }
-            }
-        }
     }
 
     post {
