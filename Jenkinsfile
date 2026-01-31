@@ -94,7 +94,7 @@ pipeline {
     post {
         always {
             echo 'Cleaning up Docker images'
-            sh "docker image rm \$DOCKER_USER/\$CONTAINER_NAME:\$TAG || true"
+            bat "docker image rm \$DOCKER_USER/\$CONTAINER_NAME:\$TAG || true"
         }
 
         success {
